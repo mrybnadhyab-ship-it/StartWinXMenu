@@ -1,0 +1,51 @@
+name: Build StartWinXMenu
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download source
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Show project structure
+        run: |
+          echo "===== PROJECT STRUCTURE ====="
+          find . -maxdepth 4 -type f | sort
+          echo "===== DIRECTORIES ====="
+          find . -maxdepth 3 -type d | sort
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --stacktrace
+          elif [ -f "./build.gradle" ] || [ -f "./build.gradle.kts" ]; then
+            gradle assembleDebug --stacktrace
+          elif [ -f "./settings.gradle" ] || [ -f "./settings.gradle.kts" ]; then
+            gradle assembleDebug --stacktrace
+          else
+            echo "ERROR: Gradle project not found in repository root."
+            exit 1
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StartWinXMenu-debug
+          path: '**/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
