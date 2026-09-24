@@ -1,86 +1,37 @@
 name: Build StartWinXMenu
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
-      - run: gradle assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: StartWinXMenu-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
 
-      - name: Fix JVM target
-        run: |
-          cd "$PROJECT_DIR"
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-          find . -name "build.gradle" -type f | while read file
-          do
-            echo "Updating $file"
-
-            if grep -q "compileOptions" "$file"; then
-              sed -i 's/sourceCompatibility JavaVersion.VERSION_1_8/sourceCompatibility JavaVersion.VERSION_17/g' "$file"
-              sed -i 's/targetCompatibility JavaVersion.VERSION_1_8/targetCompatibility JavaVersion.VERSION_17/g' "$file"
-            fi
-
-            if grep -q "jvmTarget" "$file"; then
-              sed -i 's/jvmTarget *= *["'\'']1\.8["'\'']/jvmTarget = "17"/g' "$file"
-            fi
-          done
-
-      - name: Build APK
-        run: |
-          cd "$PROJECT_DIR"
-          gradle assembleDebug --stacktrace
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: StartWinXMenu-debug-apk
-          path: "${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk"
-          if-no-files-found: error                sed -i '/android {/a\
-    kotlinOptions {\
-        jvmTarget = "17"\
-    }' "$file"
-              fi
-
-            fi
-          done
-
-          echo "JVM compatibility after modification:"
-          grep -R -n \
-            -e "sourceCompatibility" \
-            -e "targetCompatibility" \
-            -e "jvmTarget" \
-            --include="build.gradle" .
-
-      - name: Build APK
-        run: |
-          cd "$PROJECT_DIR"
-          gradle clean assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: StartWinXMenu-debug-apk
-          path: "${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk"
+          name: StartWinXMenu-debug
+          path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
