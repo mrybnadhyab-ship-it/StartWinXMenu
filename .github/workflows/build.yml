@@ -18,11 +18,14 @@ jobs:
         run: |
           mkdir project
           unzip -q StartWinXMenu-GitHub.zip -d project
+
           SETTINGS=$(find project -name settings.gradle -type f | head -n 1)
+
           if [ -z "$SETTINGS" ]; then
             echo "settings.gradle not found"
             exit 1
           fi
+
           PROJECT_DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
@@ -36,6 +39,44 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+
+      - name: Fix JVM target
+        run: |
+          cd "$PROJECT_DIR"
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          files = list(Path(".").rglob("build.gradle"))
+
+          for path in files:
+              text = path.read_text(encoding="utf-8")
+
+              if "compileOptions" not in text:
+                  text = text.replace(
+                      "android {",
+                      """android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          """,
+                      1
+                  )
+
+              if "kotlinOptions" not in text:
+                  text += """
+
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          """
+
+              path.write_text(text, encoding="utf-8")
+              print(f"Fixed JVM target: {path}")
+          PY
 
       - name: Build APK
         run: |
