@@ -20,10 +20,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
 
-      - name: Make gradlew executable
+      - name: Check project files
+        run: |
+          echo "Project root:"
+          pwd
+          echo "Files:"
+          find . -maxdepth 2 -type f | sort | head -200
+
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.13
+
+      - name: Make Gradle Wrapper executable
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
