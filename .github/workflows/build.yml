@@ -30,8 +30,7 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-          echo "Project directory:"
-          echo "$PROJECT_DIR"
+          echo "Project directory: $PROJECT_DIR"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -44,33 +43,35 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Fix JVM target compatibility
+      - name: Fix JVM target
         run: |
           cd "$PROJECT_DIR"
 
-          echo "Fixing Java/Kotlin JVM target..."
-
-          find . -name "build.gradle" -type f -print0 | while IFS= read -r -d '' file
+          find . -name "build.gradle" -type f | while read file
           do
-            echo "Checking: $file"
+            echo "Updating $file"
 
-            if grep -q "android {" "$file"; then
+            if grep -q "compileOptions" "$file"; then
+              sed -i 's/sourceCompatibility JavaVersion.VERSION_1_8/sourceCompatibility JavaVersion.VERSION_17/g' "$file"
+              sed -i 's/targetCompatibility JavaVersion.VERSION_1_8/targetCompatibility JavaVersion.VERSION_17/g' "$file"
+            fi
 
-              if grep -q "compileOptions {" "$file"; then
-                sed -i '/compileOptions {/,/}/ s/sourceCompatibility JavaVersion.VERSION_[0-9.]*/sourceCompatibility JavaVersion.VERSION_17/' "$file"
-                sed -i '/compileOptions {/,/}/ s/targetCompatibility JavaVersion.VERSION_[0-9.]*/targetCompatibility JavaVersion.VERSION_17/' "$file"
-              else
-                sed -i '/android {/a\
-    compileOptions {\
-        sourceCompatibility JavaVersion.VERSION_17\
-        targetCompatibility JavaVersion.VERSION_17\
-    }' "$file"
-              fi
+            if grep -q "jvmTarget" "$file"; then
+              sed -i 's/jvmTarget *= *["'\'']1\.8["'\'']/jvmTarget = "17"/g' "$file"
+            fi
+          done
 
-              if grep -q "kotlinOptions {" "$file"; then
-                sed -i '/kotlinOptions {/,/}/ s/jvmTarget *= *.*/jvmTarget = "17"/' "$file"
-              else
-                sed -i '/android {/a\
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StartWinXMenu-debug-apk
+          path: "${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error                sed -i '/android {/a\
     kotlinOptions {\
         jvmTarget = "17"\
     }' "$file"
