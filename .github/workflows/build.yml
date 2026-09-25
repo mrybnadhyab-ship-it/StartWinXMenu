@@ -11,42 +11,71 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check ZIP
+      - name: Show repository files
         run: |
-          echo "Files in repository:"
+          echo "===== Files in repository ====="
           ls -lah
 
-          if [ ! -f "StartWinXMenu-GitHub-FIXED-JVM17.zip" ]; then
-            echo "ERROR: StartWinXMenu-GitHub-FIXED-JVM17.zip not found"
+      - name: Find StartWinXMenu ZIP
+        shell: bash
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name 'StartWinXMenu*.zip' | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No StartWinXMenu ZIP file found."
+            echo "Expected something like:"
+            echo "StartWinXMenu-GitHub-FIXED-JVM17-FIXED.zip"
             exit 1
           fi
 
-      - name: Unzip project
-        run: |
-          mkdir project
-          unzip -q StartWinXMenu-GitHub-FIXED-JVM17.zip -d project
+          echo "Found ZIP:"
+          echo "$ZIP_FILE"
 
-          SETTINGS=$(find project \
-            -name settings.gradle \
-            -o -name settings.gradle.kts \
-            | head -n 1)
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Unzip project
+        shell: bash
+        run: |
+          rm -rf project
+          mkdir -p project
+
+          echo "Extracting:"
+          echo "$ZIP_FILE"
+
+          unzip -q "$ZIP_FILE" -d project
+
+          echo "===== Extracted files ====="
+          find project -maxdepth 3 -type f | sort | head -200
+
+      - name: Locate Gradle project
+        shell: bash
+        run: |
+          SETTINGS=$(find project -type f \( \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" \
+          \) | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle or settings.gradle.kts not found"
-            echo "Extracted files:"
-            find project -maxdepth 3 -type f | head -100
+            echo "ERROR: settings.gradle or settings.gradle.kts not found."
+
+            echo "===== Project tree ====="
+            find project -maxdepth 5 -type f | sort
+
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Gradle settings:"
+          echo "$SETTINGS"
 
           echo "Project directory:"
           echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -59,12 +88,30 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Build APK
+      - name: Show Java and Gradle versions
+        shell: bash
+        run: |
+          java -version
+          gradle --version
+
+      - name: Build project
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
 
-          echo "Building project..."
+          echo "===== Building project ====="
+
           gradle assembleDebug --stacktrace
+
+      - name: Find APK
+        shell: bash
+        run: |
+          echo "===== APK files ====="
+
+          find "$PROJECT_DIR" \
+            -type f \
+            -path "*/build/outputs/apk/debug/*.apk" \
+            -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
